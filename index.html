@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>React Sales KPI Dashboard</title>
+<!-- React 18 + Babel via CDN — no build tools required -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0F172A;font-family:'Segoe UI',sans-serif;color:#F8FAFC;padding:24px;min-height:100vh}
+  h1{font-size:22px;font-weight:800;color:#F8FAFC;margin-bottom:4px}
+  .subtitle{font-size:13px;color:#64748B;margin-bottom:24px}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+  .kpi-card{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:18px;text-align:center}
+  .kpi-value{font-size:26px;font-weight:800;margin-bottom:4px}
+  .kpi-label{font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px}
+  .blue{color:#3B82F6}.green{color:#10B981}.amber{color:#F59E0B}.white{color:#F8FAFC}
+  .table-wrap{background:#1E293B;border:1px solid #334155;border-radius:10px;overflow:hidden}
+  .table-title{padding:14px 18px;font-weight:700;font-size:14px;border-bottom:1px solid #334155}
+  table{width:100%;border-collapse:collapse}
+  th{padding:10px 14px;text-align:left;font-size:11px;color:#64748B;text-transform:uppercase;background:#0F172A}
+  td{padding:10px 14px;font-size:13px;border-top:1px solid #1E293B}
+  .badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+  .badge-green{background:rgba(16,185,129,.2);color:#6EE7B7}
+  .badge-amber{background:rgba(245,158,11,.2);color:#FCD34D}
+  .badge-red{background:rgba(239,68,68,.2);color:#FCA5A5}
+  .filter-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  select{background:#1E293B;border:1px solid #334155;color:#F8FAFC;padding:6px 12px;border-radius:6px;font-size:13px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+// --- Raw Sales Data (matches nodejs-sales-api dataset) ---
+const RAW_DATA = [
+  { id:"TX001", product:"Smart Monitor 27\"",         category:"Technology",           region:"US-East",       revenue:798.00,  cost:560.00, profit:238.00, margin:29.82, qty:2  },
+  { id:"TX002", product:"Ergonomic Task Chair",       category:"Office Supplies",      region:"US-West",       revenue:260.00,  cost:140.00, profit:120.00, margin:46.15, qty:1  },
+  { id:"TX003", product:"Fitness Smartwatch V2",      category:"Consumer Electronics", region:"South Asia",    revenue:402.30,  cost:195.00, profit:207.30, margin:51.52, qty:3  },
+  { id:"TX004", product:"Noise-Cancelling Headphones",category:"Technology",           region:"Central Europe",revenue:338.30,  cost:220.00, profit:118.30, margin:34.97, qty:2  },
+  { id:"TX005", product:"USB-C Thunderbolt Hub",      category:"Technology",           region:"East Asia",     revenue:300.00,  cost:175.00, profit:125.00, margin:41.67, qty:5  },
+  { id:"TX006", product:"Laser Toner Cartridge",      category:"Office Supplies",      region:"UK & Ireland",  revenue:260.00,  cost:100.00, profit:160.00, margin:61.54, qty:4  },
+  { id:"TX007", product:"Fast Wireless Charging Pad", category:"Consumer Electronics", region:"US-East",       revenue:25.60,   cost:14.00,  profit:11.60,  margin:45.31, qty:1  },
+  { id:"TX008", product:"Smart LED Desk Lamp",        category:"Consumer Electronics", region:"US-West",       revenue:44.20,   cost:22.00,  profit:22.20,  margin:50.23, qty:2  },
+];
+
+// --- Reusable KPI Card Component ---
+function KPICard({ label, value, colorClass }) {
+  return (
+    <div className="kpi-card">
+      <div className={`kpi-value ${colorClass}`}>{value}</div>
+      <div className="kpi-label">{label}</div>
+    </div>
+  );
+}
+
+// --- Status Badge Component ---
+function StatusBadge({ margin }) {
+  if (margin >= 40) return <span className="badge badge-green">HEALTHY</span>;
+  if (margin >= 20) return <span className="badge badge-amber">WARNING</span>;
+  return <span className="badge badge-red">CRITICAL</span>;
+}
+
+// --- Main App Component ---
+function App() {
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [regionFilter,   setRegionFilter]   = useState("All");
+
+  const categories = ["All", ...new Set(RAW_DATA.map(d => d.category))];
+  const regions    = ["All", ...new Set(RAW_DATA.map(d => d.region))];
+
+  const filtered = useMemo(() => RAW_DATA.filter(d => {
+    return (categoryFilter === "All" || d.category === categoryFilter) &&
+           (regionFilter   === "All" || d.region   === regionFilter);
+  }), [categoryFilter, regionFilter]);
+
+  const totalRevenue = filtered.reduce((s, d) => s + d.revenue, 0);
+  const totalProfit  = filtered.reduce((s, d) => s + d.profit, 0);
+  const blendedMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
+  const aov = filtered.length > 0 ? totalRevenue / filtered.length : 0;
+
+  return (
+    <div>
+      <h1>📊 React Sales KPI Dashboard</h1>
+      <p className="subtitle">Interactive Business Intelligence Dashboard | Sourojit Kar | github.com/Jeet908</p>
+
+      {/* KPI Cards */}
+      <div className="kpi-grid">
+        <KPICard label="Total Revenue"  value={`$${totalRevenue.toFixed(2)}`}   colorClass="blue"  />
+        <KPICard label="Total Profit"   value={`$${totalProfit.toFixed(2)}`}    colorClass="green" />
+        <KPICard label="Blended Margin" value={`${blendedMargin.toFixed(1)}%`}  colorClass="amber" />
+        <KPICard label="Avg Order Value"value={`$${aov.toFixed(2)}`}            colorClass="white" />
+        <KPICard label="Transactions"   value={filtered.length}                 colorClass="white" />
+      </div>
+
+      {/* Filters */}
+      <div className="filter-row">
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+          {categories.map(c => <option key={c}>{c}</option>)}
+        </select>
+        <select value={regionFilter} onChange={e => setRegionFilter(e.target.value)}>
+          {regions.map(r => <option key={r}>{r}</option>)}
+        </select>
+      </div>
+
+      {/* Transactions Table */}
+      <div className="table-wrap">
+        <div className="table-title">Transaction Ledger ({filtered.length} records)</div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Product</th><th>Category</th><th>Region</th>
+              <th>Revenue</th><th>Profit</th><th>Margin %</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(d => (
+              <tr key={d.id}>
+                <td style={{color:"#64748B"}}>{d.id}</td>
+                <td>{d.product}</td>
+                <td style={{color:"#94A3B8"}}>{d.category}</td>
+                <td style={{color:"#94A3B8"}}>{d.region}</td>
+                <td style={{color:"#3B82F6"}}>${d.revenue.toFixed(2)}</td>
+                <td style={{color:"#10B981"}}>${d.profit.toFixed(2)}</td>
+                <td>{d.margin}%</td>
+                <td><StatusBadge margin={d.margin}/></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
